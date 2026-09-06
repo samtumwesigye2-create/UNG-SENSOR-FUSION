@@ -1,0 +1,17 @@
+{
+  "secrets_backend": "local_encrypted",
+  "api_key": "",
+  "api_keys": [],
+  "zones": ["lobby", "server_room"],
+  "port": 8000,
+  "rate_limit_per_minute": 120,
+  "command_rate_limit_per_minute": 20,
+  "require_tls": false,
+  "require_sensor_signatures": true,
+  "ingest_only_mode": true,
+  "event_bus_backend": "in_process",
+  "retention_days": 90,
+  "local_encrypted": {"file": "secrets.enc", "key_env": "FUSION_SECRETS_KEY"},
+  "alert_channels": {"slack_webhook_url": "", "email": {"enabled": false}},
+  "backup": {"enabled": true, "dir": "backups", "interval_hours": 6, "keep_count": 10}
+}
