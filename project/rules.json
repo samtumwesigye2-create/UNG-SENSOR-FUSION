@@ -1,0 +1,32 @@
+{
+  "rules": [
+    {
+      "id": "lobby-smoke-alert",
+      "description": "Alert immediately if lobby smoke is detected",
+      "conditions": [{"field": "lobby:hazard_status", "operator": "eq", "value": "smoke_detected"}],
+      "actions": [{"kind": "alert", "message": "Smoke detected in lobby - hazard_status changed"}],
+      "cooldown_seconds": 120,
+      "enabled": true
+    },
+    {
+      "id": "server-room-overtemp-auto-alert-only",
+      "description": "Server room over 30C for a sustained reading",
+      "conditions": [{"field": "server_room:temperature", "operator": "gt", "value": 30}],
+      "actions": [{"kind": "alert", "message": "Server room temperature exceeded 30C"}],
+      "cooldown_seconds": 300,
+      "enabled": true
+    },
+    {
+      "id": "lobby-breach-auto-lock-nonconfirming-doors-only",
+      "description": "On suspected breach in the lobby, auto-lock non-confirmation-required doors and alert; confirmation-required doors get flagged instead",
+      "conditions": [{"field": "lobby:hazard_status", "operator": "eq", "value": "breach_suspected"}],
+      "actions": [
+        {"kind": "alert", "message": "Breach suspected in lobby - auto-lock attempted on eligible doors"},
+        {"kind": "command", "actuator_id": "lobby-side-door", "command": "lock"}
+      ],
+      "allow_auto_command": true,
+      "cooldown_seconds": 60,
+      "enabled": true
+    }
+  ]
+}
