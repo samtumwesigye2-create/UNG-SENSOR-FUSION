@@ -24,9 +24,13 @@ try:
 except Exception:
     RuleEngine = None
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.1"
+SYSTEM_NAME = "UNG-HEPHA"
+SYSTEM_FULL_NAME = "Heterogeneous Event Processing & Harmonization Architecture"
+LEGACY_SERVICE = "ung-sensor-fusion"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-API_KEY = os.getenv("SENSOR_FUSION_API_KEY", "").strip()
+# Preserve legacy variable names so existing production integrations do not break.
+API_KEY = os.getenv("HEPHA_API_KEY", os.getenv("SENSOR_FUSION_API_KEY", "")).strip()
 REQUIRE_SIGNATURES = os.getenv("REQUIRE_SENSOR_SIGNATURES", "true").lower() in {"1", "true", "yes"}
 INGEST_ONLY = os.getenv("INGEST_ONLY_MODE", "true").lower() in {"1", "true", "yes"}
 SENSOR_KEYS_JSON = os.getenv("SENSOR_KEYS_JSON", "{}").strip() or "{}"
@@ -51,7 +55,12 @@ async def lifespan(app: FastAPI):
             conn.execute(SCHEMA)
     yield
 
-app = FastAPI(title="UNG Sensor Fusion", version=APP_VERSION, lifespan=lifespan)
+app = FastAPI(
+    title=SYSTEM_NAME,
+    description=SYSTEM_FULL_NAME,
+    version=APP_VERSION,
+    lifespan=lifespan,
+)
 
 @dataclass(frozen=True)
 class Reading:
@@ -86,7 +95,7 @@ def _db():
     return psycopg.connect(DATABASE_URL,row_factory=dict_row)
 
 def _auth(key:str):
-    if not API_KEY: raise HTTPException(503,"SENSOR_FUSION_API_KEY is not configured")
+    if not API_KEY: raise HTTPException(503,"HEPHA/SENSOR_FUSION API key is not configured")
     if not hmac.compare_digest(key or "",API_KEY): raise HTTPException(401,"Invalid API key")
 
 def _canonical(b):
@@ -107,8 +116,31 @@ class IngestIn(BaseModel):
     timestamp:float=Field(default_factory=time.time); signature:str|None=None
     confidence:float=Field(default=1.0,ge=0.0,le=1.0); ttl_seconds:int=Field(default=120,ge=1,le=86400)
 
+@app.get('/')
+def root():
+    return {
+        "service": SYSTEM_NAME,
+        "full_name": SYSTEM_FULL_NAME,
+        "legacy_service": LEGACY_SERVICE,
+        "version": APP_VERSION,
+        "role": "sensor and event fusion",
+    }
+
 @app.get('/health')
-def health(): return {"status":"ok","service":"ung-sensor-fusion","version":APP_VERSION,"ingest_only":INGEST_ONLY}
+def health():
+    return {"status":"ok","service":"ung-hepha","legacy_service":LEGACY_SERVICE,"version":APP_VERSION,"ingest_only":INGEST_ONLY}
+
+@app.get('/v1/system')
+def system():
+    return {
+        "service": SYSTEM_NAME,
+        "full_name": SYSTEM_FULL_NAME,
+        "legacy_service": LEGACY_SERVICE,
+        "version": APP_VERSION,
+        "database_configured": bool(DATABASE_URL),
+        "sensor_signatures_required": REQUIRE_SIGNATURES,
+        "ingest_only": INGEST_ONLY,
+    }
 
 @app.get('/ready')
 def ready():
