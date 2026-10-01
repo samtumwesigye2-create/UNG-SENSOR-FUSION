@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
+from nexus_client import publish as publish_to_nexus
 
 try:
     import psycopg
@@ -24,7 +25,7 @@ try:
 except Exception:
     RuleEngine = None
 
-APP_VERSION = "0.5.1"
+APP_VERSION = "0.5.2"
 SYSTEM_NAME = "UNG-HEPHA"
 SYSTEM_FULL_NAME = "Heterogeneous Event Processing & Harmonization Architecture"
 LEGACY_SERVICE = "ung-sensor-fusion"
@@ -140,6 +141,7 @@ def system():
         "database_configured": bool(DATABASE_URL),
         "sensor_signatures_required": REQUIRE_SIGNATURES,
         "ingest_only": INGEST_ONLY,
+        "machine_mind_route": "UNG-NEXUS",
     }
 
 @app.get('/ready')
@@ -177,6 +179,28 @@ def ingest(body:IngestIn,x_api_key:str=Header(default="")):
     c=_db()
     if c is not None:
         with c: c.execute("INSERT INTO sensor_fusion_readings(source,data_type,value_json,message_id,sequence,sensor_timestamp) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(message_id) DO NOTHING",(body.source,body.data_type,json.dumps(body.value),body.message_id,body.sequence,body.timestamp))
+
+    threading.Thread(
+        target=publish_to_nexus,
+        kwargs={
+            "message_type":"perception.observation",
+            "payload":{
+                "label":body.data_type,
+                "source":body.source,
+                "data_type":body.data_type,
+                "value":body.value,
+                "message_id":body.message_id,
+                "sequence":body.sequence,
+                "timestamp":body.timestamp,
+                "confidence":body.confidence,
+                "ttl_seconds":body.ttl_seconds,
+            },
+            "correlation_id":body.message_id,
+            "source_system":"UNG-HEPHA",
+        },
+        daemon=True,
+    ).start()
+
     return {"accepted":True,"message_id":body.message_id,"state_key":f"{body.source}:{body.data_type}","expires_at":body.timestamp+body.ttl_seconds}
 
 @app.get('/state')
