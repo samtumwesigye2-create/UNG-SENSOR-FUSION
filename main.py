@@ -54,6 +54,13 @@ async def lifespan(app: FastAPI):
     if DATABASE_URL and psycopg is not None:
         with psycopg.connect(DATABASE_URL) as conn:
             conn.execute(SCHEMA)
+    result = publish_to_nexus(
+        'perception.observation',
+        {'subject':'hepha-startup-acceptance','label':'hepha-startup-acceptance','confidence':1.0},
+        correlation_id='hepha-startup-acceptance',
+        source_system='UNG-HEPHA',
+    )
+    print('HEPHA_MACHINE_MIND_ACCEPTANCE', result, flush=True)
     yield
 
 app = FastAPI(
